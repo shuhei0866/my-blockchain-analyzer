@@ -1,7 +1,8 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # C extensions
 *.so
@@ -173,3 +174,7 @@ data/*
 !data/.gitkeep
 output/*
 !output/.gitkeep
+
+# Ensure artifacts in excluded directories are still ignored
+**/__pycache__/**
+**/.DS_Store

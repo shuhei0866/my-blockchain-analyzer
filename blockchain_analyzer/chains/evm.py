@@ -1,12 +1,18 @@
 """EVM Chain Client using Alchemy API"""
 import aiohttp
 import asyncio
+import re
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from .base import (
     ChainClient, Chain, Transaction, TokenTransfer, TokenBalance
 )
+
+
+def is_valid_evm_address(address: str) -> bool:
+    """Check if address is a valid EVM address (0x + 40 hex chars)"""
+    return bool(re.match(r'^0x[a-fA-F0-9]{40}$', address))
 
 
 # Alchemy RPC endpoints by chain
@@ -300,6 +306,9 @@ class EVMClient(ChainClient):
         address: str
     ) -> List[TokenBalance]:
         """Get current token balances using alchemy_getTokenBalances"""
+        if not is_valid_evm_address(address):
+            raise ValueError(f"Invalid EVM address format: {address}")
+
         result = await self._rpc_call(
             "alchemy_getTokenBalances",
             [address, "erc20"]

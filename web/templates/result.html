@@ -152,6 +152,19 @@
             flex-shrink: 0;
         }
 
+        .history-link {
+            margin-left: auto;
+            color: var(--color-accent);
+            text-decoration: none;
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            transition: opacity 0.15s ease;
+        }
+
+        .history-link:hover {
+            opacity: 0.8;
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -180,6 +193,27 @@
             font-weight: 600;
             font-family: var(--font-mono);
             font-feature-settings: "tnum";
+        }
+
+        .stat-usd {
+            margin-top: var(--space-2);
+            font-size: 0.9rem;
+            color: var(--color-accent);
+            font-family: var(--font-mono);
+        }
+
+        .price-tag {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .stat-card.highlight {
+            background: var(--color-accent-muted);
+            border-color: var(--color-accent);
+        }
+
+        .stat-card.highlight .stat-value {
+            color: var(--color-accent);
         }
 
         .card {
@@ -232,14 +266,52 @@
             color: var(--color-negative);
         }
 
+        .table-responsive {
+            overflow-x: auto;
+        }
+
         .token-symbol {
             font-weight: 600;
             color: var(--text-primary);
         }
 
+        .token-price {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            margin-top: var(--space-1);
+        }
+
         .amount {
             font-family: var(--font-mono);
             font-feature-settings: "tnum";
+            display: block;
+        }
+
+        .amount-usd {
+            display: block;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            margin-top: var(--space-1);
+        }
+
+        .amount-usd.positive {
+            color: var(--color-positive);
+        }
+
+        .amount-usd.negative {
+            color: var(--color-negative);
+        }
+
+        .net-value {
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+
+        .text-muted {
+            color: var(--text-muted);
         }
 
         .no-data {
@@ -259,10 +331,17 @@
             align-items: center;
             padding: var(--space-3) 0;
             border-bottom: 1px solid var(--border-subtle);
+            gap: var(--space-4);
         }
 
         .balance-item:last-child {
             border-bottom: none;
+        }
+
+        .balance-info {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-1);
         }
 
         .balance-symbol {
@@ -273,6 +352,27 @@
             font-family: var(--font-mono);
             font-feature-settings: "tnum";
             color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .balance-values {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-1);
+        }
+
+        .balance-usd {
+            font-family: var(--font-mono);
+            font-feature-settings: "tnum";
+            color: var(--color-accent);
+            font-weight: 500;
+        }
+
+        .balance-price {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-muted);
         }
 
         @media (max-width: 640px) {
@@ -310,12 +410,22 @@
         <div class="address-bar">
             <span class="chain-badge">{{ chain_name }}</span>
             <span>{{ address }}</span>
+            <a href="/history/{{ chain }}/{{ address }}?lang={{ lang }}" class="history-link">{{ t.view_history }} &rarr;</a>
         </div>
 
         <div class="stats-grid">
+            {% if total_usd > 0 %}
+            <div class="stat-card highlight">
+                <div class="stat-label">{{ t.total_value }}</div>
+                <div class="stat-value">${{ "%.2f"|format(total_usd) }}</div>
+            </div>
+            {% endif %}
             <div class="stat-card">
                 <div class="stat-label">{{ t.native_balance }}</div>
                 <div class="stat-value">{{ "%.4f"|format(native_balance) }} {{ native_symbol }}</div>
+                {% if native_usd > 0 %}
+                <div class="stat-usd">${{ "%.2f"|format(native_usd) }} <span class="price-tag">@${{ "%.2f"|format(native_price) }}</span></div>
+                {% endif %}
             </div>
             <div class="stat-card">
                 <div class="stat-label">{{ t.token_holdings }}</div>
@@ -331,30 +441,64 @@
         <div class="card">
             <h2 class="card-title">{{ t.token_activity }}</h2>
             {% if tokens %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>{{ t.token }}</th>
-                        <th class="text-right">{{ t.in }}</th>
-                        <th class="text-right">{{ t.out }}</th>
-                        <th class="text-right">{{ t.net }}</th>
-                        <th class="text-right">{{ t.txns }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for token in tokens %}
-                    <tr>
-                        <td class="token-symbol">{{ token.symbol or 'Unknown' }}</td>
-                        <td class="text-right amount positive">+{{ "%.4f"|format(token.in) }}</td>
-                        <td class="text-right amount negative">-{{ "%.4f"|format(token.out) }}</td>
-                        <td class="text-right amount {% if token.net >= 0 %}positive{% else %}negative{% endif %}">
-                            {{ "%.4f"|format(token.net) }}
-                        </td>
-                        <td class="text-right amount">{{ token.in_count + token.out_count }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>{{ t.token }}</th>
+                            <th class="text-right">{{ t.in }}</th>
+                            <th class="text-right">{{ t.out }}</th>
+                            <th class="text-right">{{ t.net }}</th>
+                            <th class="text-right">{{ t.value }} (USD)</th>
+                            <th class="text-right">{{ t.txns }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for token in tokens %}
+                        <tr>
+                            <td>
+                                <span class="token-symbol">{{ token.symbol or 'Unknown' }}</span>
+                                {% if token.price > 0 %}
+                                <span class="token-price">@${{ "%.4f"|format(token.price) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <span class="amount positive">+{{ "%.4f"|format(token.in) }}</span>
+                                {% if token.in_usd > 0 %}
+                                <span class="amount-usd">${{ "%.2f"|format(token.in_usd) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <span class="amount negative">-{{ "%.4f"|format(token.out) }}</span>
+                                {% if token.out_usd > 0 %}
+                                <span class="amount-usd">${{ "%.2f"|format(token.out_usd) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <span class="amount {% if token.net >= 0 %}positive{% else %}negative{% endif %}">
+                                    {{ "%.4f"|format(token.net) }}
+                                </span>
+                                {% if token.net_usd != 0 %}
+                                <span class="amount-usd {% if token.net_usd >= 0 %}positive{% else %}negative{% endif %}">
+                                    {% if token.net_usd >= 0 %}+{% endif %}${{ "%.2f"|format(token.net_usd) }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if token.price > 0 %}
+                                <span class="net-value {% if token.net_usd >= 0 %}positive{% else %}negative{% endif %}">
+                                    {% if token.net_usd >= 0 %}+{% endif %}${{ "%.2f"|format(token.net_usd) }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right amount">{{ token.in_count + token.out_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
             <div class="no-data">{{ t.no_transfers }}</div>
             {% endif %}
@@ -400,8 +544,18 @@
             <div class="balance-list">
                 {% for balance in balances %}
                 <div class="balance-item">
-                    <span class="balance-symbol">{{ balance.token_symbol or balance.token_address[:8] ~ '...' }}</span>
-                    <span class="balance-amount">{{ "%.6f"|format(balance.balance) }}</span>
+                    <div class="balance-info">
+                        <span class="balance-symbol">{{ balance.token_symbol or balance.token_address[:8] ~ '...' }}</span>
+                        <span class="balance-amount">{{ "%.6f"|format(balance.balance) }}</span>
+                    </div>
+                    <div class="balance-values">
+                        {% if balance.usd_value and balance.usd_value > 0 %}
+                        <span class="balance-usd">${{ "%.2f"|format(balance.usd_value) }}</span>
+                        <span class="balance-price">@${{ "%.4f"|format(balance.usd_price) }}</span>
+                        {% else %}
+                        <span class="balance-price">-</span>
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
             </div>

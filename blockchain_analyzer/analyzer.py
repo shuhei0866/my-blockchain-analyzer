@@ -8,6 +8,7 @@ from collections import defaultdict
 from .chains.base import Chain, ChainClient, Transaction, TokenTransfer, TokenBalance
 from .chains.evm import EVMClient
 from .chains.solana import SolanaClient
+from .price_service import PriceService
 
 
 class MultiChainAnalyzer:
@@ -50,7 +51,8 @@ class MultiChainAnalyzer:
         self,
         address: str,
         chain: Chain,
-        limit: int = 100
+        limit: int = 100,
+        include_prices: bool = True
     ) -> Dict[str, Any]:
         """
         Analyze a single address on a chain
@@ -70,11 +72,35 @@ class MultiChainAnalyzer:
         # Analyze flows
         analysis = self._analyze_flows(transfers, address)
 
+        # Convert balances to dicts
+        balance_dicts = [b.__dict__ for b in balances]
+
+        # Get price data
+        price_data = None
+        if include_prices and chain != Chain.SOLANA:  # Skip Solana for now
+            try:
+                async with PriceService() as price_service:
+                    price_data = await price_service.get_prices_with_balances(
+                        chain, balance_dicts, native_balance
+                    )
+
+                    # Add USD values to balances
+                    for b in balance_dicts:
+                        addr = b.get("token_address", "").lower()
+                        token_info = price_data.get("token_usd", {}).get(addr, {})
+                        b["usd_price"] = token_info.get("price", 0)
+                        b["usd_value"] = token_info.get("usd_value", 0)
+            except Exception as e:
+                print(f"Error fetching prices: {e}")
+
         return {
             'chain': chain.value,
             'address': address,
             'native_balance': native_balance,
-            'token_balances': [b.__dict__ for b in balances],
+            'native_usd': price_data.get("native_usd", 0) if price_data else 0,
+            'native_price': price_data.get("native_price", 0) if price_data else 0,
+            'total_usd': price_data.get("total_usd", 0) if price_data else 0,
+            'token_balances': balance_dicts,
             'transactions': [t.to_dict() for t in transactions],
             'transfers': [t.to_dict() for t in transfers],
             'analysis': analysis
