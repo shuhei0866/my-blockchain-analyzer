@@ -1,0 +1,110 @@
+# Cursor Rules for Blockchain Analyzer
+
+## Project Context
+
+This is a multi-chain blockchain wallet analyzer with a WebUI. It analyzes token transfers, balances, and transaction history across Solana and EVM chains.
+
+## Code Style
+
+### Python
+- Use async/await for all I/O operations
+- Type hints on all function signatures
+- Docstrings for public functions (Google style)
+- Use dataclasses for data structures
+- Prefer pathlib over os.path
+
+### HTML/CSS (WebUI)
+- Follow the design system in CLAUDE.md
+- Use CSS custom properties (design tokens)
+- Mobile-first responsive design
+- Semantic HTML5 elements
+
+## Design System
+
+Reference: `vendor/claude-design-skill/skill/skill.md`
+
+### Design Direction
+- **Data & Analysis** + **Sophistication & Trust**
+- Dark mode default with cool slate/blue-gray tones
+- Accent: Cyan (#00d4ff)
+
+### Spacing (4px Grid)
+```
+4px  - micro (icon gaps)
+8px  - tight (within components)
+12px - standard (between related)
+16px - comfortable (section padding)
+24px - generous (between sections)
+32px - major separation
+```
+
+### Typography
+- Sans: system fonts (-apple-system, BlinkMacSystemFont, etc.)
+- Mono: ui-monospace, 'SF Mono', Monaco
+- Data (numbers, addresses, hashes): ALWAYS monospace
+- Headlines: 600 weight, -0.02em letter-spacing
+
+### Color Palette
+```css
+/* Backgrounds */
+--bg-base: #1a1a2e;
+--bg-surface: rgba(255, 255, 255, 0.05);
+
+/* Text */
+--text-primary: #e4e4e4;
+--text-secondary: #ccc;
+--text-muted: #888;
+
+/* Semantic */
+--color-positive: #22c55e;
+--color-negative: #ef4444;
+--color-accent: #00d4ff;
+```
+
+### Border Radius
+- Sharp system: 4px, 6px, 8px, 12px
+- Never > 16px on small elements
+
+### Depth Strategy
+- Dark mode: Use borders, not shadows
+- Border: rgba(255, 255, 255, 0.1)
+
+## Anti-Patterns (Never Do)
+
+- Dramatic drop shadows
+- Asymmetric padding without reason
+- Multiple accent colors
+- Spring/bouncy animations
+- Decorative gradients
+- Native form elements for styled UI (build custom)
+
+## Internationalization
+
+- Support ja (Japanese) and en (English)
+- Default language: Japanese
+- Translations in separate dict/JSON structures
+- Use lang attribute on HTML
+
+## File Organization
+
+```
+blockchain_analyzer/    # Multi-chain analysis library
+  chains/              # Chain-specific clients
+  analyzer.py          # Unified analyzer
+web/                   # FastAPI WebUI
+  app.py              # Routes
+  templates/          # Jinja2 templates
+  static/             # CSS, JS assets
+solana_analyzer/       # Legacy Solana-specific code
+scripts/               # CLI utilities
+data/                  # Cache, token lists
+output/                # Generated reports, charts
+vendor/                # Git submodules
+```
+
+## Key Patterns
+
+- All API clients are async context managers
+- Use dataclasses for transfer/balance data
+- Cache API responses in SQLite
+- Token symbols resolved via registry
