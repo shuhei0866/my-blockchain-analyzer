@@ -76,6 +76,8 @@ def read_solana(user,*,at,call=rpc):
     for category,program in TOKEN_PROGRAMS.items():
         try:
             tokens=call(SOLANA,"getTokenAccountsByOwner",[user,{"programId":program},{"encoding":"jsonParsed","commitment":"finalized"}])
+            slot=tokens['context']['slot']
+            if type(slot) is not int or slot<0:raise AnalysisError('invalid Solana slot')
             amounts={}
             for row in tokens["value"]:
                 info=row["account"]["data"]["parsed"]["info"]
@@ -90,6 +92,7 @@ def read_solana(user,*,at,call=rpc):
             if any(h.asset==unit.asset for h in holdings for unit in amounts.values()):
                 raise AnalysisError("duplicate token across programs")
             holdings.extend(h for h in amounts.values() if h.units)
+            slots[category]=slot
             coverage.append(Coverage("solana",category,"succeeded"))
         except READ_ERRORS:coverage.append(Coverage("solana",category,"failed"))
     coverage.extend([Coverage("solana","defi","unsupported"),Coverage("solana","nft_valuation","unsupported")])

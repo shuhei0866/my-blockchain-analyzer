@@ -88,12 +88,21 @@ class CoreTests(unittest.TestCase):
         def call(url,method,params):
             if method=='getBalance':return {'context':{'slot':12},'value':1000000000}
             if params[1]['programId']==TOKEN_PROGRAMS['token_2022']:raise OSError('private error must not escape')
-            return {'value':[{'account':{'data':{'parsed':{'info':{'owner':SOL,'mint':'2'+'1'*43,
+            return {'context':{'slot':13},'value':[{'account':{'data':{'parsed':{'info':{'owner':SOL,'mint':'2'+'1'*43,
                     'tokenAmount':{'amount':'1234567890123456789','decimals':18}}}}}}]}
         result=read_solana(SOL,at=NOW,call=call)
         self.assertEqual(result['holdings'][1]['units'],'1234567890123456789')
+        self.assertEqual(result['slots']['spl_legacy'],13)
         self.assertTrue(any(c['category']=='token_2022' and c['state']=='failed' for c in result['coverage']))
         self.assertNotIn('private error',str(result))
+
+    def test_token_slots_retained_when_native_read_fails(self):
+        def call(url,method,params):
+            if method=='getBalance':raise OSError('unavailable')
+            return {'context':{'slot':42},'value':[]}
+        result=read_solana(SOL,at=NOW,call=call)
+        self.assertEqual(result['slots'],{'spl_legacy':42,'token_2022':42})
+        self.assertEqual(result['coverage'][0]['state'],'failed')
 
     def test_import_does_not_read_private_config_or_start_network(self):
         code="""from pathlib import Path
