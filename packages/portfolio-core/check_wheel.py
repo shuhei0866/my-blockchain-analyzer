@@ -5,7 +5,7 @@ from zipfile import ZipFile
 
 paths=list(Path(sys.argv[1]).glob("blockchain_portfolio_core-*.whl"))
 assert len(paths)==1,"expected one built core wheel"
-code={"blockchain_portfolio/"+name+".py" for name in ("__init__","model","providers","valuation","quotes")}
+code={"blockchain_portfolio/"+name+".py" for name in ("__init__","model","providers","valuation","quotes","history")}
 with ZipFile(paths[0]) as wheel:
     files=set(wheel.namelist())
     metadata={p for p in files if p.startswith("blockchain_portfolio_core-") and ".dist-info/" in p
