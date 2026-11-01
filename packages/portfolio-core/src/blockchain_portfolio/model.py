@@ -115,7 +115,7 @@ class Price:
             raise AnalysisError("price provenance missing")
         if self.proxy_of is not None and not isinstance(self.proxy_of,str):
             raise AnalysisError("invalid price proxy reference")
-        if self.kind not in {"unspecified","last_trade","mid","bid","ask","manual"}:
+        if self.kind not in {"unspecified","last_trade","reference","mid","bid","ask","manual"}:
             raise AnalysisError("invalid price kind")
 
 @dataclass(frozen=True)

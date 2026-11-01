@@ -17,6 +17,9 @@ EVM = {
             "usdc_e":"0xba9986d2381edf1da03b0b9c1f8b00dc4aacc369"},
 }
 SOLANA="https://api.mainnet-beta.solana.com"
+# Issuer contracts: docs.lido.fi/deployed-contracts/ and tether.to/en/supported-protocols/
+ERC20={"ethereum":(("steth","0xae7ab96520de3a18e5e111b5eaab095312d7fe84",18,"stETH"),
+                    ("usdt","0xdac17f958d2ee523a2206206994597c13d831ec7",6,"USDT"))}
 # Public program IDs, not credentials: https://solana.com/docs/references/terminology
 TOKEN_PROGRAMS={"spl_legacy":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
                 "token_2022":"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"}
@@ -60,16 +63,18 @@ def read_evm(user,networks,*,at,call=rpc):
         spec=EVM[network]
         stable="usdc_e" if network=="soneium" else "usdc"
         stable_symbol="USDC.e" if stable=="usdc_e" else "USDC"
+        tokens=((stable,spec[stable],6,stable_symbol),)+ERC20.get(network,())
         try:
             if hex_uint(call(spec["url"],"eth_chainId",[]))!=spec["chain_id"]:
                 raise AnalysisError("RPC chain identity mismatch")
             block=call(spec["url"],"eth_blockNumber",[]);hex_uint(block)
         except READ_ERRORS:
-            coverage.extend(Coverage(network,c,"failed") for c in ("native_eth",stable))
+            coverage.extend(Coverage(network,c,"failed") for c in ("native_eth",*(t[0] for t in tokens)))
         else:
             blocks[network]=block
-            reads=(("native_eth","eth_getBalance",[user,block],"native",18,"ETH"),
-                   (stable,"eth_call",[{"to":spec[stable],"data":"0x70a08231"+user[2:].rjust(64,"0")},block],spec[stable],6,stable_symbol))
+            reads=(("native_eth","eth_getBalance",[user,block],"native",18,"ETH"),)+tuple(
+                (category,"eth_call",[{"to":contract,"data":"0x70a08231"+user[2:].rjust(64,"0")},block],contract,decimals,symbol)
+                for category,contract,decimals,symbol in tokens)
             for category,method,params,reference,decimals,symbol in reads:
                 try:
                     units=hex_uint(call(spec["url"],method,params))

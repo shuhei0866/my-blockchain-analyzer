@@ -115,7 +115,7 @@ class CoreTests(unittest.TestCase):
             calls.append((method,params))
             return {'eth_chainId':'0x1','eth_blockNumber':'0x10','eth_getBalance':hex(10**18),'eth_call':hex(10**6)}[method]
         result=read_evm(ADDRESS,['ethereum','arbitrum'],at=NOW,call=call)
-        self.assertEqual(len(result['holdings']),2)
+        self.assertEqual(len(result['holdings']),4)
         self.assertEqual(result['holdings'][0]['units'],str(10**18))
         self.assertTrue(any(c['state']=='failed' and c['network']=='arbitrum' for c in result['coverage']))
         for method,params in calls:
@@ -124,14 +124,37 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(failed['holdings'],[]);self.assertEqual(failed['coverage'][0]['state'],'failed')
 
     def test_evm_partial_reads_preserve_each_success_independently(self):
-        for failed_method,expected_symbol in [('eth_call','ETH'),('eth_getBalance','USDC')]:
+        for failed_method,expected_symbols in [('eth_call',['ETH']),('eth_getBalance',['USDC','stETH','USDT'])]:
             def call(url,method,params):
                 if method==failed_method:raise OSError('unavailable')
                 return {'eth_chainId':'0x1','eth_blockNumber':'0x10','eth_getBalance':'0x1','eth_call':'0x1'}[method]
             result=read_evm(ADDRESS,['ethereum'],at=NOW,call=call)
-            self.assertEqual([h['symbol'] for h in result['holdings']],[expected_symbol])
+            self.assertEqual([h['symbol'] for h in result['holdings']],expected_symbols)
             self.assertEqual(result['network_blocks'],{'ethereum':'0x10'})
             self.assertEqual(sorted(c['state'] for c in result['coverage'] if c['category'] in ('native_eth','usdc')),['failed','succeeded'])
+
+    def test_steth_usdt_exact_base_units_and_independent_failures(self):
+        from blockchain_portfolio.providers import ERC20
+        tokens={symbol:(contract,decimals) for category,contract,decimals,symbol in ERC20['ethereum']}
+        calls=[]
+        def call(url,method,params):
+            calls.append((method,params))
+            if method=='eth_call':
+                if params[0]['to']==tokens['stETH'][0]:return hex(1234567890123456789)
+                if params[0]['to']==tokens['USDT'][0]:return hex(1234567)
+                return '0x0'
+            return {'eth_chainId':'0x1','eth_blockNumber':'0x42','eth_getBalance':'0x0'}[method]
+        result=read_evm(ADDRESS,['ethereum'],at=NOW,call=call)
+        hs={h['symbol']:h for h in result['holdings']}
+        self.assertEqual((hs['stETH']['units'],hs['stETH']['decimals']),('1234567890123456789',18))
+        self.assertEqual((hs['USDT']['units'],hs['USDT']['decimals']),('1234567',6))
+        self.assertTrue(all(params[-1]=='0x42' for method,params in calls if method in {'eth_call','eth_getBalance'}))
+        def partial(url,method,params):
+            if method=='eth_call' and params[0]['to']==tokens['stETH'][0]:raise OSError('synthetic failure')
+            return call(url,method,params)
+        result=read_evm(ADDRESS,['ethereum'],at=NOW,call=partial)
+        self.assertEqual([h['symbol'] for h in result['holdings']],['ETH','USDC','USDT'])
+        self.assertIn({'network':'ethereum','category':'steth','state':'failed'},result['coverage'])
 
     def test_solana_base_units_not_float_and_token2022_partial(self):
         from blockchain_portfolio.providers import TOKEN_PROGRAMS
