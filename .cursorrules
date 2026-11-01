@@ -7,7 +7,7 @@ This is a multi-chain blockchain wallet analyzer with a WebUI. It analyzes token
 ## Code Style
 
 ### Python
-- Use async/await for all I/O operations
+- Use async/await for application I/O. The independent `packages/portfolio-core` CLI transport is deliberately synchronous and bounded; async applications must run these reads in a worker, never on their event loop.
 - Type hints on all function signatures
 - Docstrings for public functions (Google style)
 - Use dataclasses for data structures

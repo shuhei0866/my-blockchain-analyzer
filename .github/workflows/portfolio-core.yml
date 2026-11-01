@@ -1,0 +1,20 @@
+name: portfolio-core
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  isolated-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - run: PYTHONPATH=packages/portfolio-core/src python -m unittest discover -s packages/portfolio-core/tests -v
+      - run: python -m pip wheel --no-deps ./packages/portfolio-core -w "$RUNNER_TEMP/wheels"
+      - name: Inspect distribution boundary
+        run: python packages/portfolio-core/check_wheel.py "$RUNNER_TEMP/wheels"

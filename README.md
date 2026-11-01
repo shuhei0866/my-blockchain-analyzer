@@ -245,3 +245,7 @@ RPC制限により、トランザクション詳細の取得が失敗するこ�
 ## ライセンス
 
 MIT License
+
+## 再利用ライブラリ
+
+独立してinstallできるread-onlyの分析モジュールは [packages/portfolio-core](packages/portfolio-core/README.md)。整数base units・Decimal評価・欠測を保持する契約を持ち、旧WebUIや設定をimportしない。責任境界と配布方法は [docs/portfolio-core.md](docs/portfolio-core.md) を参照。
