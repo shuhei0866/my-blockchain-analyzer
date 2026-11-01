@@ -1,0 +1,18 @@
+# Blockchain Portfolio Core
+
+独立してbuildできる、read-onlyの分析ライブラリ。旧WebUI、pandas/float経路、設定、環境変数、home、DBをimport時に読み込まない。
+
+- `blockchain_portfolio.model`: chain + contract/mint/nativeの資産ID、整数base units + decimalsの保有量、Decimal価格、明示された残存取得原価、取得範囲。
+- `providers`: 固定されたEVM/Solanaのread RPC。口座参照・観測時刻・transportを呼出側から渡す。送信/署名/鍵/既定の保存先を持たない。
+- `value_holding`: 単一保有の評価額と、渡された原価が一致する場合の含み損益。時刻・price setは呼出側が指定する。原価や価格が不明ならnullを保持する。
+
+EVMの初期範囲はEthereum/ArbitrumのETH・ネイティブUSDC。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
+
+trading-opsはconsumerの一つ。口座一覧・所有区分・取得原価の根拠・内部送金照合・採用する資産表現・実験帰属・保存・UIのpolicyはconsumerが管理する。SDKは所有者を推測せず、異なる口座の合計や期間損益を計算しない。
+
+```sh
+PYTHONPATH=packages/portfolio-core/src python3 -m unittest discover -s packages/portfolio-core/tests -v
+python3 -m pip wheel --no-deps ./packages/portfolio-core -w /path/to/wheelhouse
+```
+
+配布対象はこのsubprojectだけ。root全体、legacy data/output、設定、テストfixtureをwheelへ入れない。consumerはimmutable commitとpackage subdirectoryを指定し、正規化行/評価結果にSDK版とschema版を残す。
