@@ -1,5 +1,6 @@
 from datetime import datetime,timezone
 from decimal import Decimal
+from itertools import repeat
 import unittest
 from unittest.mock import MagicMock,patch
 from blockchain_portfolio import AnalysisError,Price,Asset
@@ -41,7 +42,7 @@ class SolanaPriceTests(unittest.TestCase):
 
     def test_transport_uses_only_fixed_public_paths_and_one_bounded_batch(self):
         opener=MagicMock();response=opener.open.return_value.__enter__.return_value
-        response.read.return_value=b'{"synthetic":{"usd":1.1234567890123456789,"last_updated_at":1767225600}}'
+        response.read1.side_effect=[b'{"synthetic":{"usd":1.1234567890123456789,"last_updated_at":1767225600}}',b'']
         with patch('urllib.request.build_opener',return_value=opener):
             data=coingecko_coin_prices_get(['synthetic'])
             self.assertEqual(data['synthetic']['usd'],'1.1234567890123456789')
@@ -51,9 +52,18 @@ class SolanaPriceTests(unittest.TestCase):
             for ids in [[],['synthetic','synthetic'],['https://invalid']]:
                 with self.assertRaises(AnalysisError):coingecko_coin_prices_get(ids)
             self.assertEqual(opener.open.call_count,1)
-            response.read.return_value=b'[]';coingecko_coin_list_get()
+            response.read1.side_effect=[b'[]',b''];coingecko_coin_list_get()
             self.assertEqual(opener.open.call_args.args[0].full_url,'https://api.coingecko.com/api/v3/coins/list?include_platform=true')
-            self.assertEqual(response.read.call_args.args[0],32*1024*1024+1)
+            self.assertTrue(all(c.args[0]<=65536 for c in response.read1.call_args_list))
+
+    def test_oversized_iterables_and_slow_response_do_not_drain_without_bound(self):
+        for run in (lambda:coingecko_solana_matches(repeat(A),[]),lambda:coingecko_coin_prices_get(repeat('synthetic'))):
+            with self.assertRaises(AnalysisError):run()
+        opener=MagicMock();response=opener.open.return_value.__enter__.return_value
+        response.read1.return_value=b' '
+        with patch('urllib.request.build_opener',return_value=opener),patch('blockchain_portfolio.quotes.monotonic',side_effect=[0,1,2,21]):
+            with self.assertRaises(AnalysisError):coingecko_coin_list_get()
+        self.assertEqual(response.read1.call_count,1)
 
     def test_long_coin_id_provenance_is_accepted_by_price_model(self):
         key='a'*100

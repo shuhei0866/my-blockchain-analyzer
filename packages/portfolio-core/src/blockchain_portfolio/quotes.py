@@ -2,6 +2,8 @@
 from datetime import datetime,timedelta,timezone
 import json
 import re
+from itertools import islice
+from time import monotonic
 import urllib.request
 import urllib.parse
 from .model import AnalysisError,number,iso,canonical,digest,solana_key
@@ -17,7 +19,17 @@ CONTRACT_ROOT="https://api.coingecko.com/api/v3/simple/token_price/ethereum"
 def _coingecko_public_get(path,limit):
     request=urllib.request.Request("https://api.coingecko.com/api/v3/"+path,
         headers={"Accept":"application/json","User-Agent":"blockchain-portfolio-core/"+__version__})
-    with urllib.request.build_opener(_NoRedirect()).open(request,timeout=20) as response:raw=response.read(limit+1)
+    deadline=monotonic()+20
+    chunks=[];size=0
+    with urllib.request.build_opener(_NoRedirect()).open(request,timeout=20) as response:
+        while True:
+            if monotonic()>=deadline:raise AnalysisError("market response read deadline exceeded")
+            chunk=response.read1(min(65536,limit+1-size))
+            if monotonic()>=deadline:raise AnalysisError("market response read deadline exceeded")
+            if not chunk:break
+            chunks.append(chunk);size+=len(chunk)
+            if size>limit:raise AnalysisError("market response too large")
+    raw=b"".join(chunks)
     if len(raw)>limit:raise AnalysisError("market response too large")
     return json.loads(raw,parse_float=str)
 
@@ -32,7 +44,7 @@ def _coin_id(value):
 
 def coingecko_solana_matches(mints,payload):
     """Match exact, case-sensitive Solana mints; no symbol/name inference."""
-    mints=list(mints)
+    mints=list(islice(mints,65))
     if len(mints)>64 or len(mints)!=len(set(mints)):raise AnalysisError("invalid mint scope")
     for mint in mints:solana_key(mint)
     if not isinstance(payload,list) or len(payload)>100000:raise AnalysisError("invalid coin catalog")
@@ -53,7 +65,7 @@ def coingecko_solana_matches(mints,payload):
 
 def coingecko_coin_prices_get(coin_ids):
     """One bounded ID batch; no retry, key discovery or alternative provider."""
-    ids=list(coin_ids)
+    ids=list(islice(coin_ids,65))
     if not 1<=len(ids)<=64 or len(ids)!=len(set(ids)):raise AnalysisError("invalid market coin scope")
     for coin_id in ids:_coin_id(coin_id)
     query=urllib.parse.urlencode({"ids":",".join(sorted(ids)),"vs_currencies":"usd","include_last_updated_at":"true"})
