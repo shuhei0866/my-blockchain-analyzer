@@ -1,7 +1,8 @@
 from datetime import datetime,timezone
+from decimal import Decimal
 import unittest
 from unittest.mock import MagicMock,patch
-from blockchain_portfolio import AnalysisError
+from blockchain_portfolio import AnalysisError,Price,Asset
 from blockchain_portfolio.quotes import (coingecko_solana_matches,coingecko_coin_list_get,
     coingecko_coin_prices_get,coingecko_coin_quote)
 
@@ -53,5 +54,11 @@ class SolanaPriceTests(unittest.TestCase):
             response.read.return_value=b'[]';coingecko_coin_list_get()
             self.assertEqual(opener.open.call_args.args[0].full_url,'https://api.coingecko.com/api/v3/coins/list?include_platform=true')
             self.assertEqual(response.read.call_args.args[0],32*1024*1024+1)
+
+    def test_long_coin_id_provenance_is_accepted_by_price_model(self):
+        key='a'*100
+        q=coingecko_coin_quote(key,{key:{'usd':'1.1','last_updated_at':1767225600}},at=NOW)
+        p=Price(Asset('solana',A),'USD',Decimal(q['unit_price']),q['observed_at'],q['source'],q['source_updated_at'],kind=q['kind'])
+        self.assertLessEqual(len(p.source),96);self.assertEqual(q['product'],key)
 
 if __name__=='__main__':unittest.main()

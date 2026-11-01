@@ -69,8 +69,9 @@ def coingecko_coin_quote(coin_id,payload,*,at):
         price=number(row["usd"]);stamp=row["last_updated_at"]
         if price<=0 or type(stamp) is not int or not 0<=stamp<=253402300799:raise AnalysisError("invalid coin quote")
         updated=datetime(1970,1,1,tzinfo=timezone.utc)+timedelta(seconds=stamp)
+        source="coingecko_coin:"+coin_id if len(coin_id)<=81 else "coingecko_coin_sha256:"+digest(coin_id)
         return {"product":coin_id,"currency":"USD","unit_price":str(price),"observed_at":iso(at),
-                "source_updated_at":iso(updated),"source":"coingecko_coin:"+coin_id,"kind":"reference",
+                "source_updated_at":iso(updated),"source":source,"kind":"reference",
                 "response_digest":digest(canonical(payload))}
     except (ValueError,TypeError,KeyError,AttributeError,OverflowError):
         raise AnalysisError("invalid coin quote") from None
