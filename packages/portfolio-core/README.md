@@ -5,6 +5,7 @@
 - `blockchain_portfolio.model`: chain + contract/mint/nativeの資産ID、整数base units + decimalsの保有量、Decimal価格、明示された残存取得原価、取得範囲。
 - `providers`: 固定されたEVM/Solanaのread RPC。口座参照・観測時刻・transportを呼出側から渡す。送信/署名/鍵/既定の保存先を持たない。
 - `value_holding`: 単一保有の評価額と、渡された原価が一致する場合の含み損益。時刻・price setは呼出側が指定する。原価や価格が不明ならnullを保持する。
+- `quotes`: Krakenの固定公開spot APIからSOLUSD/ETHUSD/USDCUSDの直近1約定を読む。通貨・価格種別・約定時刻を保持し、資産との対応付けはconsumerが行う。
 
 EVMの初期範囲はEthereum/ArbitrumのETH・ネイティブUSDC。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
 
@@ -16,3 +17,5 @@ python3 -m pip wheel --no-deps ./packages/portfolio-core -w /path/to/wheelhouse
 ```
 
 配布対象はこのsubprojectだけ。root全体、legacy data/output、設定、テストfixtureをwheelへ入れない。consumerはimmutable commitとpackage subdirectoryを指定し、正規化行/評価結果にSDK版とschema版を残す。
+
+価格参照は[Kraken Recent Trades](https://docs.kraken.com/api-reference/market-data/get-recent-trades)。GET先・product・応答keyを固定し、redirect/認証探索/暗黙fallbackを持たない。JSON数値はDecimal文字列で読み、時刻をfloatへ変換しない。`kraken_quote(product, payload, at=...)` はreceipt clockをcallerが指定する。`Price.kind` は任意の価格種別で、valuationにも記録する。直近約定は執行可能価格や全venue共通の公正価値を保証しない。
