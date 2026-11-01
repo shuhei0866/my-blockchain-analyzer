@@ -8,7 +8,7 @@ import sys
 import unittest
 from unittest.mock import MagicMock,patch
 
-from blockchain_portfolio import Asset,Holding,Price,CostBasis,AnalysisError,value_holding
+from blockchain_portfolio import Asset,Holding,Price,CostBasis,AnalysisError,value_holding,__version__
 from blockchain_portfolio.model import number
 from blockchain_portfolio.providers import read_evm,read_solana,rpc,SOLANA,_NoRedirect
 
@@ -80,6 +80,11 @@ class CoreTests(unittest.TestCase):
         with patch('urllib.request.build_opener',return_value=opener) as build:
             self.assertEqual(rpc(SOLANA,'getBalance',[]),{})
             self.assertIsInstance(build.call_args.args[0],_NoRedirect)
+            request=opener.open.call_args.args[0]
+            self.assertEqual(dict(request.header_items()),{
+                'Content-type':'application/json',
+                'User-agent':'blockchain-portfolio-core/'+__version__})
+            self.assertEqual(opener.open.call_args.kwargs['timeout'],10)
             with self.assertRaises(AnalysisError):rpc('https://untrusted.invalid','getBalance',[])
             self.assertEqual(opener.open.call_count,1)
 

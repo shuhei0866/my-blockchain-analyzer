@@ -28,7 +28,8 @@ def rpc(url,method,params):
     if url not in {v["url"] for v in EVM.values()}|{SOLANA} or method not in methods:
         raise AnalysisError("unsupported public read RPC")
     request=urllib.request.Request(url,data=canonical({"jsonrpc":"2.0","id":1,"method":method,"params":params}).encode(),
-                                   headers={"Content-Type":"application/json"})
+                                   headers={"Content-Type":"application/json",
+                                            "User-Agent":"blockchain-portfolio-core/"+__version__})
     opener=urllib.request.build_opener(_NoRedirect())
     with opener.open(request,timeout=10) as response:data=response.read(8*1024*1024+1)
     if len(data)>8*1024*1024:raise AnalysisError("RPC response too large")

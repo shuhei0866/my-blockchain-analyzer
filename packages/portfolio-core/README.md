@@ -9,6 +9,8 @@
 
 EVMの初期範囲はEthereum/ArbitrumのETH・ネイティブUSDC。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
 
+RPCは`blockchain-portfolio-core/<version>`のUser-Agentでアプリを識別する。Python標準の識別名がHTTP 403 / Cloudflare 1010になる場合に対する[公式の設定案内](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/)に沿う。ブラウザの識別名は使わず、固定接続先・TLS検証・redirect拒否・失敗時のcoverageを維持する。
+
 trading-opsはconsumerの一つ。口座一覧・所有区分・取得原価の根拠・内部送金照合・採用する資産表現・実験帰属・保存・UIのpolicyはconsumerが管理する。SDKは所有者を推測せず、異なる口座の合計や期間損益を計算しない。
 
 ```sh
