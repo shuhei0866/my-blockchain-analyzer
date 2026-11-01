@@ -31,4 +31,6 @@
 
 consumerは `git+https` のfull commitと `#subdirectory=packages/portfolio-core` をpinする。ローカルでpaired開発する場合もwheelをbuildしてinstallし、隣接repoのPYTHONPATHやsys.pathへ依存しない。正規化行と評価結果にはpackage版/schema版を記録する。
 
-wheelは4つのpackage `.py` とdist-infoだけをallowlist検査する。rootのdata/output、旧WebUI、設定、テストをwheelに同梱しない。未知schemaはconsumerで拒否し、更新は明示した依存変更として試験する。
+wheelは5つのpackage `.py` とdist-infoだけをallowlist検査する。rootのdata/output、旧WebUI、設定、テストをwheelに同梱しない。未知schemaはconsumerで拒否し、更新は明示した依存変更として試験する。
+
+0.2.0では固定Kraken spot readと純粋quote parserを追加。資産→product対応と取得価格の採用はconsumerのpolicy。APIへウォレット情報を送らず、公開productだけを指定する。`Price.kind`は追加の任意項目で、既存Price入力はunspecifiedとして受理する。

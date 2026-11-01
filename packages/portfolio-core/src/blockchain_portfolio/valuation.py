@@ -17,7 +17,7 @@ def value_holding(holding: Holding, price: Price | None, basis: CostBasis | None
     if price.asset!=holding.asset:raise AnalysisError("price asset mismatch")
     result.update(price_source=price.source,price_observed_at=iso(price.observed_at),
                   price_source_updated_at=iso(price.source_updated_at) if price.source_updated_at else None,
-                  price_proxy_of=price.proxy_of)
+                  price_proxy_of=price.proxy_of,price_kind=price.kind)
     age=(at-utc(price.observed_at)).total_seconds()
     source_age=(at-utc(price.source_updated_at)).total_seconds() if price.source_updated_at else None
     if age<0 or (source_age is not None and source_age<0):

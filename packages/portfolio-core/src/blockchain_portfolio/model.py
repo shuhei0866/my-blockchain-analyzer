@@ -104,6 +104,7 @@ class Price:
     source: str
     source_updated_at: str | None = None
     proxy_of: str | None = None
+    kind: str = "unspecified"
 
     def __post_init__(self):
         if not isinstance(self.unit_price,Decimal) or number(self.unit_price)<0:
@@ -114,6 +115,8 @@ class Price:
             raise AnalysisError("price provenance missing")
         if self.proxy_of is not None and not isinstance(self.proxy_of,str):
             raise AnalysisError("invalid price proxy reference")
+        if self.kind not in {"unspecified","last_trade","mid","bid","ask","manual"}:
+            raise AnalysisError("invalid price kind")
 
 @dataclass(frozen=True)
 class CostBasis:
