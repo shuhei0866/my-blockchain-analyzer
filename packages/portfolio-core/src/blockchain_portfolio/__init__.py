@@ -1,5 +1,5 @@
 """Reusable analysis primitives; importing never reads config or contacts a provider."""
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 SCHEMA_VERSION = 1
 
 from .model import AnalysisError, Asset, Holding, Price, CostBasis, Coverage

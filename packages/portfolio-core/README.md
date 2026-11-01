@@ -26,3 +26,5 @@ python3 -m pip wheel --no-deps ./packages/portfolio-core -w /path/to/wheelhouse
 0.4.0ではEthereumのstETHとUSDTを[発行元Lido](https://docs.lido.fi/deployed-contracts/)・[Tether](https://tether.to/en/supported-protocols/)のcontractで固定し、他の保有と同じblockのbalanceOfを読む。stETHはrebasing ERC-20の現在数量であり、shares・基礎ETH・ステーキング預託残高を別の保有として作らない。
 
 `coingecko_get` / `coingecko_quote`は[contract指定の公開価格API](https://docs.coingecko.com/demo/reference/simple-token-price)をEthereum stETH/USDTの各1 contractに限定して読む。更新時計とDecimal数値を保持し、価格種別は`reference`（集約された参考価格）。ETHと同価格、USDT=1 USDと仮定せず、認証探索・有料化・別経路fallbackは持たない。欠測や古い価格の扱いはconsumerが決める。
+
+0.5.0はSolanaの価格接続用に、[公開coin一覧](https://docs.coingecko.com/demo/reference/coins-list)の`platforms.solana`とcaller指定mintを大文字小文字も含め完全一致で照合する。未掲載・複数ID一致は選ばず、記号や名称の一致を代用しない。選べたcoin IDだけを[価格API](https://docs.coingecko.com/demo/reference/simple-price)へ最大64件の一括照会で送り、Decimal参考価格・提供元更新時刻を保持する。wallet、数量、原価を価格APIへ送らない。catalog 32MiB、価格2MiB、timeout20秒、redirect拒否。レート制限時の再送・別provider fallback・認証探索は無い。catalogの取得/照合digestと採用価格の鮮度はconsumerが記録する。tokenの売却可能性・安全性やNFT/DeFiの価値を証明する機能ではない。
