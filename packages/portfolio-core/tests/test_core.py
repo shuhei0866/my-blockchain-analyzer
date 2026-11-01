@@ -88,6 +88,27 @@ class CoreTests(unittest.TestCase):
             with self.assertRaises(AnalysisError):rpc('https://untrusted.invalid','getBalance',[])
             self.assertEqual(opener.open.call_count,1)
 
+    def test_soneium_mainnet_bridged_usdc_is_distinct_and_same_block(self):
+        from blockchain_portfolio.providers import EVM
+        calls=[]
+        def call(url,method,params):
+            calls.append((url,method,params))
+            return {'eth_chainId':'0x74c','eth_blockNumber':'0x42',
+                    'eth_getBalance':hex(1234567890123456789),'eth_call':hex(1234567)}[method]
+        result=read_evm(ADDRESS,['soneium'],at=NOW,call=call)
+        self.assertEqual(result['network_blocks'],{'soneium':'0x42'})
+        self.assertTrue(all(c[0]=='https://rpc.soneium.org/' for c in calls))
+        self.assertTrue(all(c[2][-1]=='0x42' for c in calls if c[1] in {'eth_call','eth_getBalance'}))
+        token=result['holdings'][1]
+        self.assertEqual(token['symbol'],'USDC.e');self.assertEqual(token['decimals'],6)
+        self.assertEqual(token['reference'],EVM['soneium']['usdc_e'])
+        self.assertEqual(token['units'],'1234567')
+        self.assertIn({'network':'soneium','category':'usdc_e','state':'succeeded'},result['coverage'])
+        self.assertEqual(Asset('soneium',token['reference'].upper().replace('0X','0x')).reference,token['reference'])
+        wrong=read_evm(ADDRESS,['soneium'],at=NOW,call=lambda *a:'0x1')
+        self.assertEqual(wrong['holdings'],[])
+        self.assertEqual([c['category'] for c in wrong['coverage'] if c['state']=='failed'],['native_eth','usdc_e'])
+
     def test_evm_same_block_and_failure_coverage_is_retained(self):
         calls=[]
         def call(url,method,params):

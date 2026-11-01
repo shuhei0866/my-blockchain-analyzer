@@ -61,7 +61,7 @@ class Asset:
     def __post_init__(self):
         if not isinstance(self.network,str) or not isinstance(self.reference,str) or not re.fullmatch(r"[a-z0-9:_-]+",self.network) or not self.reference or "/" in self.reference or any(c.isspace() for c in self.reference):
             raise AnalysisError("invalid asset identifier")
-        evm_networks={'ethereum','arbitrum','base','optimism','polygon','bsc','avalanche'}
+        evm_networks={'ethereum','arbitrum','soneium','base','optimism','polygon','bsc','avalanche'}
         if (self.network in evm_networks or self.network.startswith('eip155:')) and self.reference.startswith('0x'):
             object.__setattr__(self,'reference',evm_address(self.reference))
 

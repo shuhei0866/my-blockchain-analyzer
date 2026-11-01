@@ -12,6 +12,9 @@ EVM = {
              "usdc":"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"},
  "arbitrum":{"url":"https://arb1.arbitrum.io/rpc","chain_id":42161,
              "usdc":"0xaf88d065e77c8cc2239327c5edb3a432268e5831"},
+ # https://docs.soneium.org/docs/builders/sfa and /docs/users/bridging
+ "soneium":{"url":"https://rpc.soneium.org/","chain_id":1868,
+            "usdc_e":"0xba9986d2381edf1da03b0b9c1f8b00dc4aacc369"},
 }
 SOLANA="https://api.mainnet-beta.solana.com"
 # Public program IDs, not credentials: https://solana.com/docs/references/terminology
@@ -55,16 +58,18 @@ def read_evm(user,networks,*,at,call=rpc):
     holdings=[];coverage=[];blocks={}
     for network in networks:
         spec=EVM[network]
+        stable="usdc_e" if network=="soneium" else "usdc"
+        stable_symbol="USDC.e" if stable=="usdc_e" else "USDC"
         try:
             if hex_uint(call(spec["url"],"eth_chainId",[]))!=spec["chain_id"]:
                 raise AnalysisError("RPC chain identity mismatch")
             block=call(spec["url"],"eth_blockNumber",[]);hex_uint(block)
         except READ_ERRORS:
-            coverage.extend(Coverage(network,c,"failed") for c in ("native_eth","usdc"))
+            coverage.extend(Coverage(network,c,"failed") for c in ("native_eth",stable))
         else:
             blocks[network]=block
             reads=(("native_eth","eth_getBalance",[user,block],"native",18,"ETH"),
-                   ("usdc","eth_call",[{"to":spec["usdc"],"data":"0x70a08231"+user[2:].rjust(64,"0")},block],spec["usdc"],6,"USDC"))
+                   (stable,"eth_call",[{"to":spec[stable],"data":"0x70a08231"+user[2:].rjust(64,"0")},block],spec[stable],6,stable_symbol))
             for category,method,params,reference,decimals,symbol in reads:
                 try:
                     units=hex_uint(call(spec["url"],method,params))

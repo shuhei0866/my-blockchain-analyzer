@@ -7,7 +7,7 @@
 - `value_holding`: 単一保有の評価額と、渡された原価が一致する場合の含み損益。時刻・price setは呼出側が指定する。原価や価格が不明ならnullを保持する。
 - `quotes`: Krakenの固定公開spot APIからSOLUSD/ETHUSD/USDCUSDの直近1約定を読む。通貨・価格種別・約定時刻を保持し、資産との対応付けはconsumerが行う。
 
-EVMの初期範囲はEthereum/ArbitrumのETH・ネイティブUSDC。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
+EVMはEthereum/ArbitrumのETH・ネイティブUSDCと、Soneium mainnetのETH・USDC.e。Soneiumは[公式network情報](https://docs.soneium.org/docs/builders/sfa)のchain ID 1868とRPCを固定し、同一blockで読む。[公式bridge資料](https://docs.soneium.org/docs/users/bridging)にあるUSDC.eは別contract/coverageとして保持し、ネイティブUSDCや同価格とは扱わない。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
 
 RPCは`blockchain-portfolio-core/<version>`のUser-Agentでアプリを識別する。Python標準の識別名がHTTP 403 / Cloudflare 1010になる場合に対する[公式の設定案内](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/)に沿う。ブラウザの識別名は使わず、固定接続先・TLS検証・redirect拒否・失敗時のcoverageを維持する。
 
