@@ -6,6 +6,9 @@
 - `providers`: 固定されたEVM/Solanaのread RPC。口座参照・観測時刻・transportを呼出側から渡す。送信/署名/鍵/既定の保存先を持たない。
 - `value_holding`: 単一保有の評価額と、渡された原価が一致する場合の含み損益。時刻・price setは呼出側が指定する。原価や価格が不明ならnullを保持する。
 - `quotes`: Krakenの固定公開spot APIからSOLUSD/ETHUSD/USDCUSDの直近1約定を読む。通貨・価格種別・約定時刻を保持し、資産との対応付けはconsumerが行う。
+- `history`（0.6.0）: callerが渡したZerion year応答を純粋に検証する。口座参照、Ethereum/Arbitrum/SoneiumまたはSolana、USD、`only_simple`の対応と、指定chainのpositions/transactions対応を検査する。HTTP・認証・保存は行わない。
+
+`parse_zerion_year_chart`は[公式chart契約](https://developers.zerion.io/api-reference/wallets/get-wallet-balance-chart)の日次整列を扱う。取得時刻直後のUTC日境界までの終端は許容するが、未来の点は採用せず除外件数を返す。日付の欠落を補間せず、数値は整数/文字列/Decimalからのみ読み、JSONのfloat経由を拒否する。wallet/tokenの所有・原価・入出金調整済み損益や全資産の完全性は証明しない。応答の正確な数値・取得時刻と認証値の分離はcallerが管理する。
 
 EVMはEthereumのETH・ネイティブUSDC・stETH・USDT、ArbitrumのETH・ネイティブUSDCと、Soneium mainnetのETH・USDC.e。Soneiumは[公式network情報](https://docs.soneium.org/docs/builders/sfa)のchain ID 1868とRPCを固定し、同一blockで読む。[公式bridge資料](https://docs.soneium.org/docs/users/bridging)にあるUSDC.eは別contract/coverageとして保持し、ネイティブUSDCや同価格とは扱わない。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
 
