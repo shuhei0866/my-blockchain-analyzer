@@ -7,7 +7,7 @@
 - `value_holding`: 単一保有の評価額と、渡された原価が一致する場合の含み損益。時刻・price setは呼出側が指定する。原価や価格が不明ならnullを保持する。
 - `quotes`: Krakenの固定公開spot APIからSOLUSD/ETHUSD/USDCUSDの直近1約定を読む。通貨・価格種別・約定時刻を保持し、資産との対応付けはconsumerが行う。
 
-EVMはEthereum/ArbitrumのETH・ネイティブUSDCと、Soneium mainnetのETH・USDC.e。Soneiumは[公式network情報](https://docs.soneium.org/docs/builders/sfa)のchain ID 1868とRPCを固定し、同一blockで読む。[公式bridge資料](https://docs.soneium.org/docs/users/bridging)にあるUSDC.eは別contract/coverageとして保持し、ネイティブUSDCや同価格とは扱わない。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
+EVMはEthereumのETH・ネイティブUSDC・stETH・USDT、ArbitrumのETH・ネイティブUSDCと、Soneium mainnetのETH・USDC.e。Soneiumは[公式network情報](https://docs.soneium.org/docs/builders/sfa)のchain ID 1868とRPCを固定し、同一blockで読む。[公式bridge資料](https://docs.soneium.org/docs/users/bridging)にあるUSDC.eは別contract/coverageとして保持し、ネイティブUSDCや同価格とは扱わない。Solanaはnative SOL、legacy SPL、Token-2022。DeFi/NFT評価、その他token/networkは未対応として明示する。失敗を空残高や0へ変えず、coverageを返す。例外本文・RPC URLを結果へ入れない。
 
 RPCは`blockchain-portfolio-core/<version>`のUser-Agentでアプリを識別する。Python標準の識別名がHTTP 403 / Cloudflare 1010になる場合に対する[公式の設定案内](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/)に沿う。ブラウザの識別名は使わず、固定接続先・TLS検証・redirect拒否・失敗時のcoverageを維持する。
 
@@ -21,3 +21,8 @@ python3 -m pip wheel --no-deps ./packages/portfolio-core -w /path/to/wheelhouse
 配布対象はこのsubprojectだけ。root全体、legacy data/output、設定、テストfixtureをwheelへ入れない。consumerはimmutable commitとpackage subdirectoryを指定し、正規化行/評価結果にSDK版とschema版を残す。
 
 価格参照は[Kraken Recent Trades](https://docs.kraken.com/api-reference/market-data/get-recent-trades)。GET先・product・応答keyを固定し、redirect/認証探索/暗黙fallbackを持たない。JSON数値はDecimal文字列で読み、時刻をfloatへ変換しない。`kraken_quote(product, payload, at=...)` はreceipt clockをcallerが指定する。`Price.kind` は任意の価格種別で、valuationにも記録する。直近約定は執行可能価格や全venue共通の公正価値を保証しない。
+
+
+0.4.0ではEthereumのstETHとUSDTを[発行元Lido](https://docs.lido.fi/deployed-contracts/)・[Tether](https://tether.to/en/supported-protocols/)のcontractで固定し、他の保有と同じblockのbalanceOfを読む。stETHはrebasing ERC-20の現在数量であり、shares・基礎ETH・ステーキング預託残高を別の保有として作らない。
+
+`coingecko_get` / `coingecko_quote`は[contract指定の公開価格API](https://docs.coingecko.com/demo/reference/simple-token-price)をEthereum stETH/USDTの各1 contractに限定して読む。更新時計とDecimal数値を保持し、価格種別は`reference`（集約された参考価格）。ETHと同価格、USDT=1 USDと仮定せず、認証探索・有料化・別経路fallbackは持たない。欠測や古い価格の扱いはconsumerが決める。
