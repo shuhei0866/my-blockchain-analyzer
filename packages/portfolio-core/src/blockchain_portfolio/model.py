@@ -112,6 +112,8 @@ class Price:
         if self.source_updated_at is not None:utc(self.source_updated_at)
         if not isinstance(self.currency,str) or not re.fullmatch(r'[A-Z][A-Z0-9]{1,11}',self.currency) or not isinstance(self.source,str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,96}',self.source):
             raise AnalysisError("price provenance missing")
+        if self.proxy_of is not None and not isinstance(self.proxy_of,str):
+            raise AnalysisError("invalid price proxy reference")
 
 @dataclass(frozen=True)
 class CostBasis:

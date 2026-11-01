@@ -24,6 +24,8 @@
 - Solana: finalized native SOL、legacy SPL、Token-2022のraw base units。Token-2022固有拡張の経済価値、DeFi/NFT評価、名前・価格推定は未対応。
 - 取得は逐次であり全networkで原子的なsnapshotではない。観測時刻はcallerが与え、読めたblock/slotとcoverageを保持する。
 - 失敗はcoverageへ残す。private URL/例外本文/認証値は結果に出さない。全取得失敗も空資産が確認できたこととは違う。
+- ETHとUSDCは独立したcoverage、Solanaの成功した各readはそれぞれのslotを保持する。固定URLからのHTTP redirectは拒否する。
+- CLI向けのtransportは同期・逐次・timeout付き。async consumerはworkerへ委譲し、event loop上で呼び出さない。
 
 ## 配布と変更
 

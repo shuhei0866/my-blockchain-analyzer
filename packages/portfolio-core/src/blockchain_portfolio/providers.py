@@ -19,13 +19,18 @@ TOKEN_PROGRAMS={"spl_legacy":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
                 "token_2022":"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"}
 READ_ERRORS=(OSError,ValueError,TypeError,KeyError,AttributeError,HTTPException)
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self,*args,**kwargs):
+        return None
+
 def rpc(url,method,params):
     methods={"eth_chainId","eth_blockNumber","eth_getBalance","eth_call","getBalance","getTokenAccountsByOwner"}
     if url not in {v["url"] for v in EVM.values()}|{SOLANA} or method not in methods:
         raise AnalysisError("unsupported public read RPC")
     request=urllib.request.Request(url,data=canonical({"jsonrpc":"2.0","id":1,"method":method,"params":params}).encode(),
                                    headers={"Content-Type":"application/json"})
-    with urllib.request.urlopen(request,timeout=10) as response:data=response.read(8*1024*1024+1)
+    opener=urllib.request.build_opener(_NoRedirect())
+    with opener.open(request,timeout=10) as response:data=response.read(8*1024*1024+1)
     if len(data)>8*1024*1024:raise AnalysisError("RPC response too large")
     result=json.loads(data)
     if not isinstance(result,dict) or result.get("id")!=1 or "error" in result or "result" not in result:
@@ -53,13 +58,18 @@ def read_evm(user,networks,*,at,call=rpc):
             if hex_uint(call(spec["url"],"eth_chainId",[]))!=spec["chain_id"]:
                 raise AnalysisError("RPC chain identity mismatch")
             block=call(spec["url"],"eth_blockNumber",[]);hex_uint(block)
-            native=hex_uint(call(spec["url"],"eth_getBalance",[user,block]))
-            token=hex_uint(call(spec["url"],"eth_call",[{"to":spec["usdc"],"data":"0x70a08231"+user[2:].rjust(64,"0")},block]))
-            batch=[Holding(Asset(network,"native"),native,18,"ETH"),Holding(Asset(network,spec["usdc"]),token,6,"USDC")]
-            holdings.extend(batch);blocks[network]=block
-            coverage.append(Coverage(network,"native_eth_and_usdc","succeeded"))
         except READ_ERRORS:
-            coverage.append(Coverage(network,"native_eth_and_usdc","failed"))
+            coverage.extend(Coverage(network,c,"failed") for c in ("native_eth","usdc"))
+        else:
+            blocks[network]=block
+            reads=(("native_eth","eth_getBalance",[user,block],"native",18,"ETH"),
+                   ("usdc","eth_call",[{"to":spec["usdc"],"data":"0x70a08231"+user[2:].rjust(64,"0")},block],spec["usdc"],6,"USDC"))
+            for category,method,params,reference,decimals,symbol in reads:
+                try:
+                    units=hex_uint(call(spec["url"],method,params))
+                    holdings.append(Holding(Asset(network,reference),units,decimals,symbol))
+                    coverage.append(Coverage(network,category,"succeeded"))
+                except READ_ERRORS:coverage.append(Coverage(network,category,"failed"))
         coverage.extend([Coverage(network,"other_tokens","unsupported"),Coverage(network,"defi","unsupported")])
     return observation("evm_public_rpc",user,at,holdings,coverage,network_blocks=blocks)
 

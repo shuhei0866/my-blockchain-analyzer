@@ -6,11 +6,11 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock,patch
 
 from blockchain_portfolio import Asset,Holding,Price,CostBasis,AnalysisError,value_holding
 from blockchain_portfolio.model import number
-from blockchain_portfolio.providers import read_evm,read_solana
+from blockchain_portfolio.providers import read_evm,read_solana,rpc,SOLANA,_NoRedirect
 
 NOW=datetime(2026,1,1,tzinfo=timezone.utc)
 ADDRESS="0x"+"1"*40
@@ -69,6 +69,20 @@ class CoreTests(unittest.TestCase):
         with self.assertRaises(AnalysisError):
             Price(self.asset,'USD',Decimal('1'),NOW.isoformat(),'https://provider/?key=synthetic')
 
+    def test_proxy_reference_type_is_checked(self):
+        with self.assertRaises(AnalysisError):
+            Price(self.asset,'USD',Decimal('1'),NOW.isoformat(),'synthetic',proxy_of={'untrusted':'value'})
+
+    def test_transport_refuses_redirects_and_unknown_endpoints(self):
+        self.assertIsNone(_NoRedirect().redirect_request(None,None,302,'',{},'https://untrusted.invalid'))
+        opener=MagicMock()
+        opener.open.return_value.__enter__.return_value.read.return_value=b'{"id":1,"result":{}}'
+        with patch('urllib.request.build_opener',return_value=opener) as build:
+            self.assertEqual(rpc(SOLANA,'getBalance',[]),{})
+            self.assertIsInstance(build.call_args.args[0],_NoRedirect)
+            with self.assertRaises(AnalysisError):rpc('https://untrusted.invalid','getBalance',[])
+            self.assertEqual(opener.open.call_count,1)
+
     def test_evm_same_block_and_failure_coverage_is_retained(self):
         calls=[]
         def call(url,method,params):
@@ -82,6 +96,16 @@ class CoreTests(unittest.TestCase):
             if method in ('eth_getBalance','eth_call'):self.assertEqual(params[-1],'0x10')
         failed=read_evm(ADDRESS,['ethereum'],at=NOW,call=lambda *a:[])
         self.assertEqual(failed['holdings'],[]);self.assertEqual(failed['coverage'][0]['state'],'failed')
+
+    def test_evm_partial_reads_preserve_each_success_independently(self):
+        for failed_method,expected_symbol in [('eth_call','ETH'),('eth_getBalance','USDC')]:
+            def call(url,method,params):
+                if method==failed_method:raise OSError('unavailable')
+                return {'eth_chainId':'0x1','eth_blockNumber':'0x10','eth_getBalance':'0x1','eth_call':'0x1'}[method]
+            result=read_evm(ADDRESS,['ethereum'],at=NOW,call=call)
+            self.assertEqual([h['symbol'] for h in result['holdings']],[expected_symbol])
+            self.assertEqual(result['network_blocks'],{'ethereum':'0x10'})
+            self.assertEqual(sorted(c['state'] for c in result['coverage'] if c['category'] in ('native_eth','usdc')),['failed','succeeded'])
 
     def test_solana_base_units_not_float_and_token2022_partial(self):
         from blockchain_portfolio.providers import TOKEN_PROGRAMS
