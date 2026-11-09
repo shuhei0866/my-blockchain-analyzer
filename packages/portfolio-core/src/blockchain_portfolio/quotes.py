@@ -211,3 +211,76 @@ def gmo_ticker_quote(product,raw,*,at):
             "response_sha256":hashlib.sha256(raw).hexdigest()}
     except Exception:
         raise AnalysisError("invalid GMO ticker") from None
+
+COINCHECK_PRODUCTS={"BTCJPY":"btc_jpy","XLMJPY":"xlm_jpy","IOSTJPY":"iost_jpy"}
+ECB_ROOT="https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml"
+
+def _reference_raw(url,limit):
+    request=urllib.request.Request(url,method="GET",headers={"Accept":"application/json,application/xml","User-Agent":"blockchain-portfolio-core/"+__version__})
+    try:
+        deadline=monotonic()+15;chunks=[];size=0
+        with urllib.request.build_opener(urllib.request.ProxyHandler({}),_NoRedirect()).open(request,timeout=15) as response:
+            if response.status!=200:raise AnalysisError("reference response unavailable")
+            while True:
+                if monotonic()>=deadline:raise AnalysisError("reference read deadline")
+                chunk=response.read1(min(65536,limit+1-size))
+                if monotonic()>=deadline:raise AnalysisError("reference read deadline")
+                if not chunk:break
+                chunks.append(chunk);size+=len(chunk)
+                if size>limit:raise AnalysisError("reference size limit")
+        return b"".join(chunks)
+    except Exception:raise AnalysisError("reference provider unavailable") from None
+
+def coincheck_rate_get(product):
+    """Read one fixed public reference rate; account credentials are never used."""
+    if product not in COINCHECK_PRODUCTS:raise AnalysisError("unsupported Coincheck public product")
+    return _reference_raw("https://coincheck.com/api/rate/"+COINCHECK_PRODUCTS[product],65536)
+
+def coincheck_rate_quote(product,raw,*,at):
+    """Receipt-time reference; the provider response has no market update clock."""
+    import hashlib
+    try:
+        if product not in COINCHECK_PRODUCTS or not isinstance(raw,bytes) or len(raw)>65536:raise ValueError()
+        def pairs(items):
+            d={}
+            for k,v in items:
+                if k in d:raise ValueError()
+                d[k]=v
+            return d
+        p=json.loads(raw,object_pairs_hook=pairs)
+        if set(p)!={"rate"} or not isinstance(p["rate"],str) or number(p["rate"])<=0:raise ValueError()
+        return {"product":product,"currency":"JPY","unit_price":str(number(p["rate"])),
+            "source":"coincheck_public_rate:"+product,"kind":"reference","observed_at":iso(at),
+            "source_updated_at":None,"source_timestamp_kind":"not_provided",
+            "response_sha256":hashlib.sha256(raw).hexdigest()}
+    except Exception:raise AnalysisError("invalid Coincheck reference rate") from None
+
+def ecb_rates_get():
+    """Read the fixed public 90-day official EUR reference-rate document."""
+    return _reference_raw(ECB_ROOT,1024*1024)
+
+def ecb_usdjpy_rates(raw):
+    """Exact JPY/USD cross rates; publication-time adoption belongs to the caller."""
+    from datetime import date
+    from decimal import localcontext
+    import xml.etree.ElementTree as ET
+    try:
+        if not isinstance(raw,bytes) or len(raw)>1024*1024 or b"<!DOCTYPE" in raw.upper() or b"<!ENTITY" in raw.upper():raise ValueError()
+        root=ET.fromstring(raw);ns="{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}"
+        days=root.findall(".//"+ns+"Cube[@time]");seen=set();rows=[]
+        if not 1<=len(days)<=100:raise ValueError()
+        for day in days:
+            label=day.attrib['time']
+            if date.fromisoformat(label).isoformat()!=label or label in seen:raise ValueError()
+            seen.add(label);rates={}
+            for cell in day:
+                c=cell.attrib['currency']
+                if c in rates:raise ValueError()
+                rates[c]=number(cell.attrib['rate'])
+                if rates[c]<=0:raise ValueError()
+            with localcontext() as ctx:
+                ctx.prec=2048
+                rows.append({'rate_date':label,'JPY_per_EUR':str(rates['JPY']),'USD_per_EUR':str(rates['USD']),
+                    'JPY_per_USD':str(rates['JPY']/rates['USD'])})
+        return sorted(rows,key=lambda r:r['rate_date'])
+    except Exception:raise AnalysisError("invalid ECB reference rates") from None
