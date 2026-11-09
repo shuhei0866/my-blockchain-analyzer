@@ -42,4 +42,25 @@ class GMOTest(unittest.TestCase):
             self.assertEqual(req.full_url,'https://api.coin.z.com/public/v1/ticker?symbol=NAC')
             self.assertEqual(req.get_method(),'GET');self.assertEqual(set(k.lower() for k in req.headers),{'accept','user-agent'})
 
+class GMOTransportTest(unittest.TestCase):
+    def test_exact_bytes_and_size_cap(self):
+        for data,valid in [(b'{"source":"unchanged"}',True),(b'x'*(GMO_LIMIT+1),False)]:
+            with patch('urllib.request.build_opener') as opener:
+                response=opener.return_value.open.return_value.__enter__.return_value
+                response.status=200
+                cursor=[0]
+                def read(size):
+                    part=data[cursor[0]:cursor[0]+size];cursor[0]+=len(part);return part
+                response.read1.side_effect=read
+                if valid:self.assertEqual(gmo_ticker_get('NACJPY'),data)
+                else:
+                    with self.assertRaises(AnalysisError):gmo_ticker_get('NACJPY')
+
+    def test_non_200_is_not_followed_or_parsed(self):
+        with patch('urllib.request.build_opener') as opener:
+            response=opener.return_value.open.return_value.__enter__.return_value
+            response.status=302
+            with self.assertRaises(AnalysisError):gmo_ticker_get('NACJPY')
+            response.read1.assert_not_called()
+
 if __name__=='__main__':unittest.main()
