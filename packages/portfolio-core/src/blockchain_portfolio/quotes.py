@@ -145,3 +145,69 @@ def kraken_quote(product,payload,*,at):
                 "response_digest":digest(canonical(payload))}
     except (ValueError,TypeError,KeyError,AttributeError,OverflowError,IndexError):
         raise AnalysisError("invalid market quote") from None
+
+# GMO spot identity is explicit. No symbol guessing, holdings or authentication.
+GMO_PRODUCTS={"NACJPY":"NAC"}
+GMO_TICKER_ROOT="https://api.coin.z.com/public/v1/ticker"
+GMO_LIMIT=256*1024
+
+def gmo_ticker_get(product):
+    """Return exact bounded public ticker bytes for immutable caller storage."""
+    if product not in GMO_PRODUCTS:raise AnalysisError("unsupported GMO product")
+    request=urllib.request.Request(GMO_TICKER_ROOT+"?symbol="+GMO_PRODUCTS[product],
+        method="GET",headers={"Accept":"application/json","User-Agent":"blockchain-portfolio-core/"+__version__})
+    deadline=monotonic()+15
+    chunks=[];size=0
+    try:
+        # No environment proxy, credential lookup, retry or redirect.
+        opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),_NoRedirect())
+        with opener.open(request,timeout=15) as response:
+            if response.status!=200:raise AnalysisError("GMO unavailable")
+            while True:
+                if monotonic()>=deadline:raise AnalysisError("GMO read deadline exceeded")
+                chunk=response.read1(min(65536,GMO_LIMIT+1-size))
+                if monotonic()>=deadline:raise AnalysisError("GMO read deadline exceeded")
+                if not chunk:break
+                chunks.append(chunk);size+=len(chunk)
+                if size>GMO_LIMIT:raise AnalysisError("GMO response too large")
+        return b"".join(chunks)
+    except Exception:
+        raise AnalysisError("GMO ticker unavailable") from None
+
+def gmo_ticker_quote(product,raw,*,at):
+    """NAC/JPY last trade reference; timestamp is the provider's ticker clock."""
+    from .model import utc
+    import hashlib
+    try:
+        if product not in GMO_PRODUCTS or not isinstance(raw,bytes) or len(raw)>GMO_LIMIT:
+            raise AnalysisError("invalid GMO response")
+        def pairs(items):
+            d={}
+            for key,value in items:
+                if key in d:raise AnalysisError("duplicate GMO field")
+                d[key]=value
+            return d
+        payload=json.loads(raw,object_pairs_hook=pairs)
+        if not isinstance(payload,dict) or type(payload.get("status")) is not int or payload["status"]!=0:
+            raise AnalysisError("invalid GMO status")
+        rows=payload["data"]
+        if not isinstance(rows,list) or len(rows)!=1:raise AnalysisError("ambiguous GMO product")
+        row=rows[0]
+        if not isinstance(row,dict) or row.get("symbol")!=GMO_PRODUCTS[product]:raise AnalysisError("GMO product mismatch")
+        values={}
+        for key in ("last","bid","ask"):
+            if not isinstance(row[key],str):raise AnalysisError("GMO decimal string required")
+            value=number(row[key])
+            if value<=0:raise AnalysisError("invalid GMO price")
+            values[key]=str(value)
+        if number(values["bid"])>number(values["ask"]):raise AnalysisError("crossed GMO spread")
+        updated=utc(row["timestamp"]);received=utc(payload["responsetime"])
+        # Freshness/adoption is caller policy. Never replace clocks with fetch time.
+        return {"product":product,"currency":"JPY","unit_price":values["last"],
+            "bid":values["bid"],"ask":values["ask"],"observed_at":iso(at),
+            "source_updated_at":iso(updated),"provider_response_at":iso(received),
+            "source":"gmo_spot_last:NACJPY","kind":"last_trade",
+            "source_timestamp_kind":"ticker_timestamp",
+            "response_sha256":hashlib.sha256(raw).hexdigest()}
+    except Exception:
+        raise AnalysisError("invalid GMO ticker") from None
