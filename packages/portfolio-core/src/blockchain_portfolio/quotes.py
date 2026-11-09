@@ -260,7 +260,7 @@ def ecb_rates_get():
     return _reference_raw(ECB_ROOT,1024*1024)
 
 def ecb_usdjpy_rates(raw):
-    """Exact JPY/USD cross rates; publication-time adoption belongs to the caller."""
+    """64-significant-digit Decimal cross rates; caller owns publication adoption."""
     from datetime import date
     from decimal import localcontext
     import xml.etree.ElementTree as ET
@@ -279,7 +279,7 @@ def ecb_usdjpy_rates(raw):
                 rates[c]=number(cell.attrib['rate'])
                 if rates[c]<=0:raise ValueError()
             with localcontext() as ctx:
-                ctx.prec=2048
+                ctx.prec=64
                 rows.append({'rate_date':label,'JPY_per_EUR':str(rates['JPY']),'USD_per_EUR':str(rates['USD']),
                     'JPY_per_USD':str(rates['JPY']/rates['USD'])})
         return sorted(rows,key=lambda r:r['rate_date'])
